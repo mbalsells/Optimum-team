@@ -3,111 +3,176 @@
 #include <fstream>
 #include <map>
 #include <cassert>
-#include <time.h>   
+#include <time.h>
+
 using namespace std;
-
-struct player {
-    string name, position, club;
-    int price, points;
-};
-
-typedef vector <player> players; 
 typedef vector <int> vi; 
 typedef vector <vi> vvi; 
 typedef vector <vvi> vvvi; 
 typedef vector <vvvi> vvvvi;
 typedef vector <vvvvi> vvvvvi;
 
-string outputFile;
-players everyone;
-vector <int> formation; // has 3 position;
-int cost_player;
+const int INF = 2e9;
+
+struct player {
+    string name, position, club;
+    int price, points;          
+};
+typedef vector <player> players;
+
+vector <players> classified_players;
+vector <int> formation; // number of needed players for each position
+
 vvvvi dp;
 vvvvvi best;
 
-const int INF = 2e9;
-
-vector <string> encode = {"por", "def", "mig", "dav"};
-
-void print_player(player p){
-    cout << "Nom: " << p.name << endl;
-    cout << "Posició: " << p.position << endl;
-    cout << "Preu: " << p.price << endl;
-    cout << "Club: " << p.club << endl;
-    cout << "Punts: " << p.points << endl;
-    cout << endl;
+bool comp(const player& p1, const player& p2){
+    if (p1.points != p2.points) return p1.points > p2.points;
+    if (p1.price != p2.price) return p1.price < p2.price;
+    return p1.name < p2.name;
 }
 
-int rec(int points, int c, int left, int pos){
-    //cout << points << ", " << c << " and " << left << " also " << pos << endl;
-    if (points < 0) return 0;
+// Function that separates the players by the position they play, which is useful for 
+// their handling in the recursive function later on.
+void player_position_separator (const players& everyone, const int Max_Price) {
+    map <string, int> classifier = {{"por", 0}, {"def", 1}, {"mig", 2}, {"dav", 3}};
 
-    vi& team = best[points][c][left][pos];
+    for (const player& p : everyone) {
+        if (p.price > Max_Price) continue;
 
-    if (pos == everyone.size()){
-        team = {};
-        if (left > 0) return INF;
-        if (points != 0) return INF;
-        return 0;
+        int pos = classifier[p.position];
+        classified_players[pos].push_back(p);
     }
 
-    int& ans = dp[points][c][left][pos];
+    for (int pos = 0; pos < 4; ++pos) 
+        sort(classified_players[pos].begin(), classified_players[pos].end(), comp);
+}
 
+int max_points_compute(){
+    int ans = 0;
+    for (int pos = 0; pos < 4; ++pos){
+        for (int j = 0; j < formation[pos]; ++j)
+            ans += classified_players[pos][j].points;
+    }
+
+    return ans;
+}
+
+int max_players_compute(){
+    int ans = 0;
+    for (int pos = 0; pos < 4; ++pos){
+        ans = max(ans, (int) classified_players[pos].size());
+    }
+
+    return ans;
+}
+
+void initialize(const players& everyone, int N1, int N2, int N3, int max_price_player){
+    formation = {1, N1, N2, N3, 0};
+    classified_players = vector <players> (4);
+
+    player_position_separator(everyone, max_price_player);
+
+    int max_points = max_points_compute() + 1;
+    int max_players = max_players_compute() + 1;
+    int max_taken = max(N1, max(N2, N3)) + 1;
+
+    dp = vvvvi(max_points, vvvi(5, vvi(max_taken, vi(max_players, -1))));
+    best = vvvvvi(max_points, vvvvi(5, vvvi(max_taken, vvi(max_players))));
+}
+
+
+int rec(int points, int pos, int left, int k, int max_price){
+    vi& team = best[points][pos][left][k];
+    int& ans = dp[points][pos][left][k];
     if (ans != -1) return ans;
+    
+    team = {};
 
-    int newc = c, newleft = left;
+    if (pos == 4) return ans = (points == 0 ? 0 : INF); 
+    if (left > classified_players[pos].size() - 1 - k) return ans = INF;
 
-    if (pos < everyone.size() - 1 and encode[c] != everyone[pos+1].position) {
-        newleft = formation[c];
-        ++newc;
+    player& current_player = classified_players[pos][k];
+
+    int newpos = pos, newleft = left, newk = k + 1;
+    if (newk == classified_players[pos].size()){
+        newpos = pos + 1;
+        newleft = formation[newpos];
+        newk = 0;
     }
 
-    ans = rec(points, newc, newleft, pos + 1);
-    team = best[points][newc][newleft][pos+1];
+    if (newpos == pos){
+        ans = rec(points, newpos, newleft, newk, max_price);
+        team = best[points][newpos][newleft][newk];
+    }
+    
+    if (points >= current_player.points) {
+        --newleft;
+        if (newleft == 0){
+            newpos = pos + 1;
+            newk = 0;
+            newleft = formation[newpos];
+        }
 
-    if (newc == c) --newleft; 
-
-    if (left > 0 and everyone[pos].price <= cost_player and points >= everyone[pos].points) {
-        int taken = everyone[pos].price + rec(points - everyone[pos].points, newc, newleft, pos + 1);
-        if (taken < ans) {
+        int taken = current_player.price + rec(points - current_player.points, newpos, newleft, newk, max_price);
+        
+        if (taken < ans and taken <= max_price) {
             ans = taken;
 
-            team = best[points - everyone[pos].points][newc][newleft][pos+1];
-            team.push_back(pos);
+            team = best[points - current_player.points][newpos][newleft][newk];
+            team.push_back(k);
         }
     }
 
     return ans;
 }
 
-void order_by(){ //WOOOOOEOEOEOOEOO WAAAA
-    players AUX;
+players solve(int max_price){
+    vector <int> best_team;
 
-    for (int i = 0; i < everyone.size(); ++i){
-        if (everyone[i].position == "por") AUX.push_back(everyone[i]);
-    }
-    for (int i = 0; i < everyone.size(); ++i){
-        if (everyone[i].position == "def") AUX.push_back(everyone[i]);
-    }
-    for (int i = 0; i < everyone.size(); ++i){
-        if (everyone[i].position == "mig") AUX.push_back(everyone[i]);
-    }
-    for (int i = 0; i < everyone.size(); ++i){
-        if (everyone[i].position == "dav") AUX.push_back(everyone[i]);
+    for (int points = 0; points < dp.size(); ++points){
+        int cost = rec(points, 0, 1, 0, max_price);
+        if (cost <= max_price) best_team = best[points][0][1][0];
     }
 
-    everyone = AUX;
+    players ans;
+    for (int pos = 0; pos < 4; ++pos){
+        for (int j = 0; j < formation[pos]; ++j){
+            ans.push_back(classified_players[pos][best_team.back()]);
+            best_team.pop_back();
+        }
+    }
+
+    return ans;
 }
 
-int main(int argc, char** argv) {
-    if (argc != 2) {
-        cout << "Syntax: " << argv[0] << " data_base.txt" << endl;
-        exit(1);
+void print_solution(ofstream& document, players& team){
+    vector <string> encode = {"POR", "DEF", "MIG", "DAV"};
+    int points = 0, price = 0;
+
+    int index = 0;
+    for (int pos = 0; pos < 4; ++pos){
+        document << encode[pos] << ": ";
+
+        for (int j = 0; j < formation[pos]; ++j){
+            if (j > 0) document << ";";
+            points += team[index].points;
+            price += team[index].price;
+
+            document << team[index++].name;
+        }
+
+        document << endl;
     }
 
-    vector <int> PTS;
+    document << "Punts: " << points << endl;
+    document << "Preu: " << price << endl;
+}
 
-    ifstream in(argv[1]);
+players read_data(string input_file){
+    players everyone;
+
+    ifstream in(input_file);
     while (not in.eof()) {
         string nom, posicio, club;
         int punts, preu;
@@ -120,51 +185,44 @@ int main(int argc, char** argv) {
         string aux2;
         getline(in,aux2);
         everyone.push_back({nom, posicio, club, preu, punts});
-        PTS.push_back(punts);
-    }
+    }  
 
-    sort(PTS.begin(), PTS.end(), greater <int>());
+    return everyone;
+}
 
-    int sum = 0;
-    for (int i = 0; i < 11; ++i) sum += PTS[i];
-    cout << "::: " << sum << " !! " << endl;
-
+players get_solution(string input_file, players& everyone){
+    ifstream in("public_benchs/" + input_file);
+    int N1, N2, N3, max_price_team, max_price_player;
+    in >> N1 >> N2 >> N3 >> max_price_team >> max_price_player;
     in.close();
 
-    order_by();
+    initialize(everyone, N1, N2, N3, max_price_player);
 
-    cout << " stop " << endl;   
+    return solve(max_price_team);
+}
 
-    int N1, N2, N3, cost_team;
-    while (cin >> N1 >> N2 >> N3 >> cost_team >> cost_player){
-        clock_t t;
-        t = clock();
+void write_soltuion(string output_file, players& best_team, double time){
+    ofstream document;
+    document.open(output_file);
+    document.setf(ios::fixed);
+    document.precision(1);
 
-        //cout << " woo " << endl;
+    document << time/CLOCKS_PER_SEC << endl;
+    print_solution(document, best_team);
+    document.close();
+}
 
-        dp = vvvvi(3002, vvvi(4, vvi(6, vi(everyone.size() + 1, -1))));
-        best = vvvvvi(3002, vvvvi(4, vvvi(6, vvi(everyone.size() + 1))));
+int main(int argc, char** argv) {
+    clock_t time = clock();
 
-        //cout << " okay  --> " << everyone.size() << endl;
+    if (argc != 4) {
+        cout << "3 arguments required!" << endl;
+        cout << "the data_base, the test_case"
+        cout << "Syntax: " << argv[0] << " data_base.txt" << endl;
+        exit(1);
+    }
 
-        formation = {N1, N2, N3};
-
-        vector <int> best_team = {};
-        int maximum = -1;
-
-        for (int i = 0; i < 3000; ++i){
-            int cost = rec(i, 0, 1, 0);
-
-            if (cost <= cost_team and cost != INF) { //not necessary really
-                maximum = cost;
-                best_team = best[i][0][1][0];
-            } 
-        }
-        
-        t = clock() - t;
-        cout << " IT TAKES " << ((float)t)/CLOCKS_PER_SEC;
-
-        cout << maximum << endl;
-        for (int i : best_team) print_player(everyone[i]);
-    } 
+    players everyone = read_data(argv[1]);
+    players best_team = get_solution(argv[2], everyone);
+    write_soltuion(argv[3], best_team, clock() - time);
 }
