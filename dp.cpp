@@ -217,8 +217,7 @@ int main(int argc, char** argv) {
 
     if (argc != 4) {
         cout << "3 arguments required!" << endl;
-        cout << "the data_base, the test_case"
-        cout << "Syntax: " << argv[0] << " data_base.txt" << endl;
+        cout << "the data_base, the test_case and the output file" << endl;
         exit(1);
     }
 
