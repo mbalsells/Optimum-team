@@ -20,6 +20,10 @@ struct player {
 };
 typedef vector <player> players;
 
+string output_file;
+clock_t initial_time;
+
+
 vector <players> classified_players;
 // classified_players[position] has all the players that have that position,
 // considering that the position ranges from 0 to 3 where 0 is goalkeeper,
@@ -38,6 +42,55 @@ vvvvi dp;
 vvvvvi best;
 // given a state of the dp, returns a vector with the indexes where the
 // players of the optimum team are located.
+
+
+// Given the document in which the output will be introduced and a
+// team, introduces the team in the document with the required format
+void print_solution(ofstream& document, players& team){
+    vector <string> encode = {"POR", "DEF", "MIG", "DAV"};
+    int points = 0, price = 0;
+
+    int index = 0;
+    for (int pos = 0; pos < 4; ++pos){
+        document << encode[pos] << ": ";
+
+        for (int j = 0; j < formation[pos]; ++j){
+            if (j > 0) document << ";";
+            points += team[index].points;
+            price += team[index].price;
+
+            document << team[index++].name;
+        }
+
+        document << endl;
+    }
+
+    document << "Punts: " << points << endl;
+    document << "Preu: " << price << endl;
+}
+
+// Given the file where the output must be printed, the optimum team, and
+// the execution time that has been needed to get the answer, it
+// introduces the output in the output file with the required format.
+void write_soltuion(vector <int>& best_team){
+    ofstream document;
+    document.open(output_file);
+    document.setf(ios::fixed);
+    document.precision(1);
+
+    document << double(clock() - initial_time)/CLOCKS_PER_SEC << endl;
+    
+    players ans;
+    for (int pos = 0; pos < 4; ++pos){
+        for (int j = 0; j < formation[pos]; ++j){
+            ans.push_back(classified_players[pos][best_team.back()]);
+            best_team.pop_back();
+        }
+    }
+
+    print_solution(document, ans);
+    document.close();
+}
 
 // Function used to sort players with descending order with respect to the
 // points and ascending with respect to the price and name (in this order). 
@@ -96,11 +149,11 @@ void initialize(const players& everyone, int N1, int N2, int N3, int max_price_p
     player_position_separator(everyone, max_price_player);
 
     int max_points = max_points_compute() + 1;
-    int max_players = max_players_compute() + 1;
+    int max_players = max_players_compute() + 2; //we allow .........
     int max_taken = max(N1, max(N2, N3)) + 1;
 
-    dp = vvvvi(max_points, vvvi(5, vvi(max_taken, vi(max_players, -1))));
-    best = vvvvvi(max_points, vvvvi(5, vvvi(max_taken, vvi(max_players, {}))));
+    dp = vvvvi(max_points, vvvi(4, vvi(max_taken, vi(max_players, -1))));
+    best = vvvvvi(max_points, vvvvi(4, vvvi(max_taken, vvi(max_players, {}))));
 }
 
 // This recurrent function is the main funcion of the dynamic. Given a amount of
@@ -110,94 +163,55 @@ void initialize(const players& everyone, int N1, int N2, int N3, int max_price_p
 // needed to make a team of that exact amount of points, of price less than the
 // threshold, which has as members the required number of players for each
 // position > pos and exactly left players that have as position pos.
-int rec(int points, int pos, int left, int k, int max_price){
+int min_price(int points, int pos, int left, int k, int max_price){
     vi& team = best[points][pos][left][k];
     int& ans = dp[points][pos][left][k];
+    
     if (ans != -1) return ans;
     
-    if (pos == 4) return ans = (points == 0 ? 0 : INF); // all players considered
-    if (left > classified_players[pos].size() - 1 - k) return ans = INF;
-        
-    player& current_player = classified_players[pos][k];
+    int max_players = classified_players[pos].size();
 
-    int newpos = pos, newleft = left, newk = k + 1, newpoints = points;
-    if (newk == classified_players[pos].size()){
-        newpos = pos + 1;
-        newleft = formation[newpos];
-        newk = 0;
-    }
-
-    if (newpos == pos){
-        // we decide not to take the current_player in our team.
-        ans = rec(points, newpos, newleft, newk, max_price);
-        team = best[points][newpos][newleft][newk];
-    }
+    if (pos == 3 and k == max_players) return ans = (points == 0 ? 0 : INF); // all players considered
     
-    newpoints -= current_player.points;
-    if (newpoints >= 0) {
-        if (--newleft == 0){
-            newpos = pos + 1;
-            newk = 0;
-            newleft = formation[newpos];
-        }
+    if (k == max_players) {
+        ++pos;
+        k = 0;
+        left = formation[pos];
+    }
 
-        // we decide to take the current_player in our team
-        int taken = current_player.price + rec(newpoints, newpos, newleft, newk, max_price);
-        
+    if (left > classified_players[pos].size() - 1 - k) return ans = INF;
+    player& current_player = classified_players[pos][k];
+    
+    // We decide not to take the current_player in our team.
+    ans = min_price(points, pos, left, k + 1, max_price);
+    team = best[points][pos][left][k + 1];
+    
+    int mypoints = current_player.points;
+    if (left > 0 and mypoints <= points){
+
+        // Now we decide to take the current_player in our team.
+        int taken = current_player.price + min_price(points - mypoints, pos, left - 1, k + 1, max_price);
+
         if (taken < ans and taken <= max_price) {
             ans = taken;
-            team = best[newpoints][newpos][newleft][newk];
+            team = best[points - mypoints][pos][left - 1][k + 1];
             team.push_back(k);
         }
     }
+
     return ans;
 }
 
 // Given the maximum_price that a team can have, and having initialized all the
 // global variables, returns the team with the highest amount of points, which 
 // price is below the threshold.
-players solve(int max_price){
+void solve(int max_price){
     vector <int> best_team;
 
     for (int points = 0; points < dp.size(); ++points){
-        int cost = rec(points, 0, 1, 0, max_price);
-        if (cost <= max_price) best_team = best[points][0][1][0];
+        int cost = min_price(points, 0, 1, 0, max_price);
+        if (cost <= max_price) write_soltuion(best[points][0][1][0]);
     }
-
-    players ans;
-    for (int pos = 0; pos < 4; ++pos){
-        for (int j = 0; j < formation[pos]; ++j){
-            ans.push_back(classified_players[pos][best_team.back()]);
-            best_team.pop_back();
-        }
-    }
-
-    return ans;
-}
-
-// Given the document in which the output will be introduced and a
-// team, introduces the team in the document with the required format
-void print_solution(ofstream& document, players& team){
-    vector <string> encode = {"POR", "DEF", "MIG", "DAV"};
-    int points = 0, price = 0;
-
-    int index = 0;
-    for (int pos = 0; pos < 4; ++pos){
-        document << encode[pos] << ": ";
-
-        for (int j = 0; j < formation[pos]; ++j){
-            if (j > 0) document << ";";
-            points += team[index].points;
-            price += team[index].price;
-
-            document << team[index++].name;
-        }
-
-        document << endl;
-    }
-
-    document << "Punts: " << points << endl;
-    document << "Preu: " << price << endl;
 }
 
 // given the file with the data of the football players, returns
@@ -226,7 +240,7 @@ players read_data(string input_file){
 // Given the input file of the test case and all the players,
 // returns the optimum team, i.e. the one that satisfies all the
 // constraints and has the highest punctuation. 
-players get_solution(string input_file, players& everyone){
+void get_solution(string input_file, players& everyone){
     ifstream in("public_benchs/" + input_file);
     int N1, N2, N3, max_price_team, max_price_player;
     in >> N1 >> N2 >> N3 >> max_price_team >> max_price_player;
@@ -234,25 +248,11 @@ players get_solution(string input_file, players& everyone){
 
     initialize(everyone, N1, N2, N3, max_price_player);
 
-    return solve(max_price_team);
-}
-
-// Given the file where the output must be printed, the optimum team, and
-// the execution time that has been needed to get the answer, it
-// introduces the output in the output file with the required format.
-void write_soltuion(string output_file, players& best_team, double time){
-    ofstream document;
-    document.open(output_file);
-    document.setf(ios::fixed);
-    document.precision(1);
-
-    document << time/CLOCKS_PER_SEC << endl;
-    print_solution(document, best_team);
-    document.close();
+    solve(max_price_team);
 }
 
 int main(int argc, char** argv) {
-    clock_t time = clock();
+    initial_time = clock();
 
     if (argc != 4) {
         cout << "3 arguments required!" << endl;
@@ -260,7 +260,8 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    output_file = argv[3];
+
     players everyone = read_data(argv[1]);
-    players best_team = get_solution(argv[2], everyone);
-    write_soltuion(argv[3], best_team, clock() - time);
+    get_solution(argv[2], everyone);
 }
