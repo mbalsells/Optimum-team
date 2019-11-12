@@ -4,7 +4,7 @@ In this project, given a list of Fanstasy Football players, we have to compute t
 
 # Our solution
 
-We have realized that is problem is really similar to the classical knapsack but with certain resticrtions, so it can be solve using dynamic programming. ...
+We have realized that is problem is really similar to the classical knapsack but with certain resticrtions, so it can be solve using dynamic programming. Conside
 
 
 
