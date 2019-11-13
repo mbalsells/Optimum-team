@@ -45,7 +45,7 @@ and the optimum team will be best\[p\]\[pos\]\[left\]\[k+1\] if the first argume
 
 Realize that the finall solution will be max p such that dp\[p\]\[0\]\[1\]\[0\] <= Budget. 
 
-* For covenience, i.e. in order to get asimpler code, we say that dp\[p\]\[pos\]\[left\]\[k\] = INF if there is no team that satisfies the constraints.
+* For covenience, i.e. in order to get a simpler code, we say that dp\[p\]\[pos\]\[left\]\[k\] = INF if there is no team that satisfies the constraints.
 
 * Also for convenience when changing the position we are considering, we will save the minimum price and the team we have obtained in the "old" states. I.e. if there are K0 goalkeepers and we are in the case (p, 0, 0, K0) then we know that er are really in the case (p, 1, N1, 0), and we will work as if we are in this second case, but we will store all the information we have computed as if we were in the state (p, 0, 0, K0). We decide to store them in this "old" state, because from the previous states we will try to reach this state to get the computed team. 
 
