@@ -33,8 +33,20 @@ In the real problem we also need to have for each state the actual team, which c
 * To make the code simpler we denoted each position with a number:
 0 - goalkeeper, 1 - defense, 2 - midfielder, 3 - forward  
 
+* We decided to separate the players according to their position. In our program classified_players\[pos\] is a vector with all the players which position is pos.
+
 * We thought that is wasn't nice to have a vector of 6 dimensions representing the states of the dynamic and another vector of 7 dimensions representing the optimum team for a state of the dynamic. So we decided to reduce the number of states, even if this makes us use more memory. In particular we decided to reduce the four states \[n0\]\[n1\]\[n2\]\[n3\] to 2 states \[position\]\[players that we have to take of this position\]. So, at the end, we have that our memoization vector will be.
 
-dp\[p\]\[pos\]\[left\]\[k\] = minimum price of a team that has exactly p points, such that it has Ni players of the i-th position with i > pos and left players of the position pos, all of which have index at least k. Here Ni denotes the number of required players of players that belong to the i-th position our finall team needs to have.
+dp\[p\]\[pos\]\[left\]\[k\] = minimum price of a team that has exactly p points, such that it has Ni players of the i-th position with i > pos and left players of the position pos, all of which have index at least k. Here Ni denotes the number of required players that belong to the i-th position our finall team needs to have.
 
-* 
+Whenever we change the position we are considering to the position i, we will update left to be Ni
+and the recurrence is just dp\[p\]\[pos\]\[left\]\[k\] = min(dp\[p\]\[pos\]\[left\]\[k+1\], price of the player with index k with position pos +  dp\[p - points of the player with index k with position pos\]\[pos\]\[left-1\]\[k+1\])
+and the optimum team will be best\[p\]\[pos\]\[left\]\[k+1\] if the first argument of the min is the minimum and best\[p - points of the player with index k with position pos\]\[pos\]\[left-1\]\[k+1\] union k if the second argument of the min is the minimum.
+
+Realize that the finall solution will be max p such that dp\[p\]\[0\]\[1\]\[0\] <= Budget. 
+
+* For covenience, i.e. in order to get asimpler code, we say that dp\[p\]\[pos\]\[left\]\[k\] = INF if there is no team that satisfies the constraints.
+
+* Also for convenience when changing the position we are considering, we will save the minimum price and the team we have obtained in the "old" states. I.e. if there are K0 goalkeepers and we are in the case (p, 0, 0, K0) then we know that er are really in the case (p, 1, N1, 0), and we will work as if we are in this second case, but we will store all the information we have computed as if we were in the state (p, 0, 0, K0). We decide to store them in this "old" state, because from the previous states we will try to reach this state to get the computed team. 
+
+* Since we will be introducing the team members indices in order (first goalkeepers, then defenses, ...) Then there is no need to store pairs of ints telling us the position and index within the position of the taken players, it sufficies with taking the indices within their position.
