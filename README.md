@@ -28,9 +28,13 @@ We now have approximately 2.3e8 states, so we should be able to get the maxmium 
 
 In the real problem we also need to have for each state the actual team, which can be represented as a vector of int (with the indices of the players). the size of this vector is at most 11, meaning that our program will run within a couple of seconds.
 
-
+... why = 
 # Personal choices
+* To make the code simpler we denoted each position with a number:
+0 - goalkeeper, 1 - defense, 2 - midfielder, 3 - forward  
 
-* We thought that is wasn't nice to have a vector of 6 dimensions representing the states of the dynamic and another vector of 7 dimensions representing the optimum team for a state of the dynamic. So we decided to reduce the number of states, even if this makes us use more memory. In particular we decided to reduce the four states \[n0\]\[n1\]\[n2\]\[n3\] to 2 states \[position\]\[players that we have to take of this position\]
+* We thought that is wasn't nice to have a vector of 6 dimensions representing the states of the dynamic and another vector of 7 dimensions representing the optimum team for a state of the dynamic. So we decided to reduce the number of states, even if this makes us use more memory. In particular we decided to reduce the four states \[n0\]\[n1\]\[n2\]\[n3\] to 2 states \[position\]\[players that we have to take of this position\]. So, at the end, we have that our memoization vector will be.
+
+dp\[p\]\[pos\]\[left\]\[k\] = minimum price of a team that has exactly p points, such that it has Ni players of the i-th position with i > pos and left players of the position pos, all of which have index at least k. Here Ni denotes the number of required players of players that belong to the i-th position our finall team needs to have.
 
 * 
