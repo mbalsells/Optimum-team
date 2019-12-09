@@ -27,7 +27,17 @@ vector <int> formation;
 // Number of required players for each position.
 
 bool comp (const player& p1, const player& p2) {
-	return p1.price < p2.price;
+	if (p1.points != p2.points) return p1.points < p2.points;
+    return p1.price < p2.price;
+}
+
+bool order_position (const player& p1, const player& p2) {
+    map <string, int> classifier = {{"por", 0}, {"def", 1}, {"mig", 2}, {"dav", 3}};
+
+    if (classifier[p1] != classifier[p2]) return classifier[p1] < classifier[p2];
+    if (p1.points != p2.points) return p1.points > p2.points;
+    if (p1.price != p2.price) return p1.price < p2.price;
+    return p1.name < p2.name;
 }
 
 // Given the document in which the output will be written and a
@@ -68,6 +78,18 @@ void print_solution(vector <int>& team){
     document.close();
 }
 
+// This function is used to initiallize the variables used in the program.
+// It is the case of the formation vector, the classified_players matrix,
+// and it fixes the states of the memoization vector.
+void initialize(vector <player>& players, int N1, int N2, int N3, int max_price){
+    formation = {1, N1, N2, N3};
+    vector <player> aux;
+    for (player p : players) if (p.price <= max_price) aux.push_back(p);
+    players = aux;
+    sort(players.begin(), players.end(), comp()); // Sort the vector of players.
+}
+
+
 // Given the maximum_price that a team can have, and having initialized all the
 // global variables, this function finds the best price with which all possible scores can
 // be obtained, overwiting the best solution found if a better one comes up.
@@ -102,7 +124,6 @@ void get_solution(string input_file, const vector <player>& players){
     in.close();
 
     initialize(players, N1, N2, N3, max_price_player); //Initialize variables.
-    sort(v.begin(), v.end(), comp()); // Sort the vector of players.
     greedy(max_price_team); //Solve the problem.
 }
 
