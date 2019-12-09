@@ -7,11 +7,6 @@
 #include <time.h>
 
 using namespace std;
-typedef vector <int> vi; 
-typedef vector <vi> vvi; 
-typedef vector <vvi> vvvi; 
-typedef vector <vvvi> vvvvi;
-typedef vector <vvvvi> vvvvvi;
 
 const int INF = 2e9;
 
@@ -20,9 +15,8 @@ struct player {
     int price, points;          
 };
 
-string output_file; //Name of the output file
-clock_t initial_time; //Time when the program started
-
+string output_file; //name of the output file.
+clock_t initial_time; //time when the program started.
 
 vector <vector <player> > classified_players(4);
 // Classified_players[position] has all the players that have that position,
@@ -32,22 +26,9 @@ vector <vector <player> > classified_players(4);
 vector <int> formation; 
 // Number of required players for each position.
 
-
-bool comp(const player& p1, const player& p2){
-    if (p1.points != p2.points) return p1.points > p2.points;
-    if (p1.price != p2.price) return p1.price < p2.price;
-    return p1.name < p2.name;
+bool comp (const player& p1, const player& p2) {
+	return p1.price < p2.price;
 }
-
-bool order_position(const player& p1, const player& p2){
-    map <string, int> classifier = {{"por", 0}, {"def", 1}, {"mig", 2}, {"dav", 3}};
-
-    if (classifier[p1] != classifier[p2]) return classifier[p1] < classifier[p2];
-    if (p1.points != p2.points) return p1.points > p2.points;
-    if (p1.price != p2.price) return p1.price < p2.price;
-    return p1.name < p2.name;
-}
-
 
 // Given the document in which the output will be written and a
 // team, writes the team in the document with the required format.
@@ -87,12 +68,6 @@ void print_solution(vector <int>& team){
     document.close();
 }
 
-void initialize(const vector <player>& players, int N1, int N2, int N3, int max_price){
-    formation = {1, N1, N2, N3};
-    
-    player_position_separator(players, max_price); //separate players by position
-}
-
 // Given the maximum_price that a team can have, and having initialized all the
 // global variables, this function finds the best price with which all possible scores can
 // be obtained, overwiting the best solution found if a better one comes up.
@@ -116,7 +91,6 @@ void greedy(vector <player>& players, int budget){
     print_solution(ans);
 }
 
-
 // Given the input file of the test case and all the players, the function
 // returns the optimum team, i.e. the one that satisfies all the
 // constraints and has the highest total score. Also, out of all the ones
@@ -127,31 +101,9 @@ void get_solution(string input_file, const vector <player>& players){
     in >> N1 >> N2 >> N3 >> max_price_team >> max_price_player;
     in.close();
 
-    initialize(players, max_price_player); //Initialize variables.
-    greedy(players, max_price_team); //Solve the problem.
-}
-
-// Given the file with the data of the football players, the function returns
-// all the players in the database.
-vector <player> read_data(string input_file){
-    vector <player> players;
-
-    ifstream in(input_file);
-    while (not in.eof()) {
-        string nom, posicio, club;
-        int punts, preu;
-        getline(in,nom,';');        if (nom == "") break;
-        getline(in,posicio,';');
-        in >> preu;
-        char aux; in >> aux;
-        getline(in,club,';');
-        in >> punts;
-        string aux2;
-        getline(in,aux2);
-        players.push_back({nom, posicio, club, preu, punts});
-    }  
-
-    return players;
+    initialize(players, N1, N2, N3, max_price_player); //Initialize variables.
+    sort(v.begin(), v.end(), comp()); // Sort the vector of players.
+    greedy(max_price_team); //Solve the problem.
 }
 
 int main(int argc, char** argv) {
