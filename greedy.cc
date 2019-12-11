@@ -1,12 +1,14 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <cmath>
 #include <algorithm>
 #include <map>
 #include <cassert>
 #include <time.h>
 
 using namespace std;
+typedef long long int ll;
 
 struct player {
     string name, position, club;
@@ -19,11 +21,23 @@ clock_t initial_time; //time when the program started.
 vector <int> formation; 
 // Number of required players for each position.
 
-bool comp (const player& p1, const player& p2) {
-    if (p1.points != p2.points) return p1.points > p2.points;
-    return p1.price < p2.price;
+ll budget; // budget for the team.
+
+
+// This function is used to sort players such that the first ones
+// when taken give a better total score. 
+bool comp (const player p1, const player p2) {
+    double points1 = p1.points, points2 = p2.points;
+
+    //we penalize the price of a player normalizing it using
+    //the budget and number of players.
+    points1 *= (1 - (double(p1.price)/double(11 * budget)));
+    points2 *= (1 - (double(p2.price)/double(11 * budget)));
+
+    return points1 > points2;
 }
 
+// Sort players mainly by position but also points, price and name.
 bool order_position (const player& p1, const player& p2) {
     map <string, int> classifier = {{"por", 0}, {"def", 1}, {"mig", 2}, {"dav", 3}};
 
@@ -34,10 +48,9 @@ bool order_position (const player& p1, const player& p2) {
     return p1.name < p2.name;
 }
 
-// Given the document in which the output will be written and a
-// team, writes the team in the document with the required format.
+// Given a team, the fucntion writes it in the document with the required format.
 void print_solution(vector <player>& team){
-
+    // we sort the team players according to the output rules.
     sort(team.begin(), team.end(), order_position);
     vector <string> encode = {"POR", "DEF", "MIG", "DAV"};
     
@@ -60,7 +73,7 @@ void print_solution(vector <player>& team){
 
             //Current player.
             player member = team[index++];
-            points += member.points;
+            points += member.points;        
             price += member.price;
 
             document << member.name;
@@ -68,15 +81,17 @@ void print_solution(vector <player>& team){
         document << endl;
     }
 
+    cout << points << endl;
     document << "Punts: " << points << endl;
     document << "Preu: " << price << endl;
     document.close();
 }
 
-// This function is used to initiallize the variables used in the program.
-// It is the case of the formation vector, the classified_players matrix,
-// and it fixes the states of the memoization vector.
-void initialize(vector <player>& players, int max_price){
+// This function is used to eliminate players which price is greater
+// than the maxmium allowed and also, it sorts the players according
+// to the comp function.
+void prepare(vector <player>& players, int max_price){
+    // First we eliminate players whose price is above the treshold.
     vector <player> aux;
     for (player p : players) if (p.price <= max_price) aux.push_back(p);
     players = aux;
@@ -84,10 +99,10 @@ void initialize(vector <player>& players, int max_price){
 }
 
 
-// Given the maximum_price that a team can have, and having initialized all the
-// global variables, this function finds the best price with which all possible scores can
-// be obtained, overwiting the best solution found if a better one comes up.
-void greedy(vector <player>& players, int budget){
+// Given all the players, we select a team by taking players in order
+// as long as we have enought budget to take it and we don't have
+// enough players with this position.
+void greedy(vector <player>& players){
     map <string, int> classifier = {{"por", 0}, {"def", 1}, {"mig", 2}, {"dav", 3}};
 
     vector <int> formed(4, 0);
@@ -108,19 +123,18 @@ void greedy(vector <player>& players, int budget){
 }
 
 // Given the input file of the test case and all the players, the function
-// returns the optimum team, i.e. the one that satisfies all the
-// constraints and has the highest total score. Also, out of all the ones
-// that share such a score, we break ties by taking the cheapest one.
+// returns a good enough team, i.e. the a team that satisfies all the
+// constraints and has a high score.
 void get_solution(string input_file, vector <player>& players){
     ifstream in(input_file);
-    int N1, N2, N3, max_price_team, max_price_player;
-    in >> N1 >> N2 >> N3 >> max_price_team >> max_price_player;
+    int N1, N2, N3, max_price_player;
+    in >> N1 >> N2 >> N3 >> budget >> max_price_player;
     in.close();
 
     formation = {1, N1, N2, N3};
      
-    initialize(players, max_price_player); //Initialize variables.
-    greedy(players, max_price_team); //Solve the problem.
+    prepare(players, max_price_player); //Clean and sort players.
+    greedy(players); //Solve the problem.
 }
 
 // Given the file with the data of the football players, the function returns
