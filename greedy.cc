@@ -21,18 +21,21 @@ clock_t initial_time; //time when the program started.
 vector <int> formation; 
 // Number of required players for each position.
 
-ll budget; // budget for the team.
-
+ll budget; //budget for the team.
 
 // This function is used to sort players such that the first ones
 // when taken give a better total score. 
 bool comp (const player p1, const player p2) {
     double points1 = p1.points, points2 = p2.points;
+    double price1 = p1.price, price2 = p2.price;
 
-    //we penalize the price of a player normalizing it using
-    //the budget and number of players.
-    points1 *= (1 - (double(p1.price)/double(11 * budget)));
-    points2 *= (1 - (double(p2.price)/double(11 * budget)));
+    //Expected price of a player. 
+    double Expected_price = budget/11.0;
+
+    //we slighly penalize the players with high price normalizing it using 
+    //the expected price of a player.
+    points1 *= (1 - price1/(3*Expected_price));
+    points2 *= (1 - price2/(3*Expected_price));
 
     return points1 > points2;
 }
@@ -63,7 +66,6 @@ void print_solution(vector <player>& team){
 
     document << double(clock() - initial_time)/CLOCKS_PER_SEC << endl;
 
-    
     int index = 0;
     for (int pos = 0; pos < 4; ++pos){
         document << encode[pos] << ": ";
@@ -81,13 +83,13 @@ void print_solution(vector <player>& team){
         document << endl;
     }
 
-    cout << points << endl;
+    cout << points << endl; //OJO TREURE !!
     document << "Punts: " << points << endl;
     document << "Preu: " << price << endl;
     document.close();
 }
 
-// This function is used to eliminate players which price is greater
+// This function is used to eliminate players whose price is greater
 // than the maxmium allowed and also, it sorts the players according
 // to the comp function.
 void prepare(vector <player>& players, int max_price){
@@ -95,11 +97,13 @@ void prepare(vector <player>& players, int max_price){
     vector <player> aux;
     for (player p : players) if (p.price <= max_price) aux.push_back(p);
     players = aux;
-    sort(players.begin(), players.end(), comp); // Sort the vector of players.
+    
+    //Now we sort the players according to comp.
+    sort(players.begin(), players.end(), comp);
 }
 
 
-// Given all the players, we select a team by taking players in order
+// Given all the players, we select a team by taking players in order,
 // as long as we have enought budget to take it and we don't have
 // enough players with this position.
 void greedy(vector <player>& players){
@@ -123,7 +127,7 @@ void greedy(vector <player>& players){
 }
 
 // Given the input file of the test case and all the players, the function
-// returns a good enough team, i.e. the a team that satisfies all the
+// returns a good enough team, i.e. a team that satisfies all the
 // constraints and has a high score.
 void get_solution(string input_file, vector <player>& players){
     ifstream in(input_file);
@@ -134,11 +138,11 @@ void get_solution(string input_file, vector <player>& players){
     formation = {1, N1, N2, N3};
      
     prepare(players, max_price_player); //Clean and sort players.
-    greedy(players); //Solve the problem.
+    greedy(players);                    //Solve the problem.
 }
 
-// Given the file with the data of the football players, the function returns
-// all the players in the database.
+// Given the file containing the data of the football players,
+// the function returns all the players in the database.
 vector <player> read_data(string input_file){
     vector <player> players;
 
@@ -170,6 +174,6 @@ int main(int argc, char** argv) {
     }
 
     output_file = argv[3];
-    vector <player> players = read_data(argv[1]);
-    get_solution(argv[2], players); 
+    vector <player> players = read_data(argv[1]); //Read data base.
+    get_solution(argv[2], players);               //Get a good team.
 }
