@@ -10,7 +10,7 @@ using namespace std;
 typedef vector <int> vi; 
 typedef vector <vi> vvi;
 
-const int INF = 2e9;
+const int INF = 1e9;
 
 struct player {
     string name, position, club;
@@ -110,7 +110,21 @@ vi crosover(vi& t1, vi& t2){
 
 //returns a mutation (possibly more than one) of a team.
 vi mutation(vi& team){
+    double p = 0.15;
 
+    vi mutate = team;
+    int sum = 0;
+    for (int i = 0; i < formation.size(); ++i){
+        for (int j = 0; j < formation[i]; ++j){
+            //int points = classified_players[i][team[sum++]].points;
+            
+            double random = (double (rng() % INF)/INF);
+            if (random < p) mutate[sum] = rng() % classifier[i].size(); 
+            ++sum;
+        }
+    }
+    
+    return mutate;
 }
 
 
