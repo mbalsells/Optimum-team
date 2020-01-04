@@ -5,6 +5,8 @@
 #include <map>
 #include <cassert>
 #include <time.h>
+#include <chrono>
+#include <random>
 
 using namespace std;
 typedef vector <int> vi; 
@@ -99,7 +101,15 @@ bool valid_permutation(vi& team){
 
 //Adds a random valid permutation
 vi add_random(){
-    
+    vi newteam;
+    for (int i = 0; i < formation.size(); ++i){
+        for (int j = 0; j < formation[i]; ++j){
+            newteam.push_back(rng() % classifier[i].size()); 
+        }
+    }
+
+    if (not valid_permutation(newteam)) return add_random;
+    return newteam;
 }
 
 //is the crossing between 2 teams
@@ -186,6 +196,7 @@ void get_solution(string input_file, const vector <player>& players){
 }
 
 int main(int argc, char** argv) {
+    mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
     initial_time = clock();
 
     if (argc != 4) {
