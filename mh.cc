@@ -145,8 +145,8 @@ vi add_random(){
 // one of the two players to choose said player in the recombination. The probability of choosing 
 // each player is a function of their points and prices.
 bool coin_flip(const player& p1, const player& p2) {
-    double p = p1.points/p1.price;
-    double T = p + p2.points/p2.price;
+    double p = p1.points/(1 + p1.price);
+    double T = p + p2.points/(1 + p2.price);
     return (p/T > (double (rng() % INF)/INF)); 
 }
 
