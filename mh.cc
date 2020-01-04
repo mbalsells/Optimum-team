@@ -75,8 +75,8 @@ void print_solution(vector <int>& team){
 // 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
 int position(int i) {
     if (i == 0) return 0;
-    if (i < N1 + 1) return 1;
-    if (i < N1 + N2 + 1) return 2;
+    if (i < formation[1] + 1) return 1;
+    if (i < formation[1] + formation[2] + 1) return 2;
     return 3;
 }
 
