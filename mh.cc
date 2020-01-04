@@ -36,31 +36,6 @@ int max_price_team; //our budget
 
 vvi population; //the current population (each vector represents the positions of the players).
 
-// Helper for the sort, whose arguments are an index, a vector and the lowest index to be ordered.
-void insert(int i, vi& team, int k) {
-    while (team[i] < team[i-1] and i > k) {
-        swap(team[i], team[i-1]);
-        --i;
-    }
-}
-
-// Function to sort relatively small vectors, where insertion sort is more efficient.
-void insertion_sort(int j, vi& team, int k) {
-    for (int i = k; i < j; ++i) {
-        insert(i, team, k);
-    }
-}
-
-// Function to reorder the players in a team in lexicographical order within the same position.
-void reorder(vi& team) {
-    // Ordering the defense
-    insertion_sort(formation[1] + 1, team, 1);
-    // Ordering the midfield
-    insertion_sort(formation[2] + formation[1] + 1, team, formation[1] + 2);
-    // Ordering the forwards
-    insertion_sort(formation[3] + formation[2] + formation[1] + 1, team, formation[2] + formation[1] + 2);
-}
-
 // Function which given an index, returns the index of the player's position:
 // 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
 int position(int i) {
@@ -87,6 +62,33 @@ int team_price(const vi& team){
     }
     return ans;
 }
+
+
+// Helper for the sort, whose arguments are an index, a vector and the lowest index to be ordered.
+void insert(int i, vi& team, int k) {
+    while (team[i] < team[i-1] and i > k) {
+        swap(team[i], team[i-1]);
+        --i;
+    }
+}
+
+// Function to sort relatively small vectors, where insertion sort is more efficient.
+void insertion_sort(int j, vi& team, int k) {
+    for (int i = k; i < j; ++i) {
+        insert(i, team, k);
+    }
+}
+
+// Function to reorder the players in a team in lexicographical order within the same position.
+void reorder(vi& team) {
+    // Ordering the defense
+    insertion_sort(formation[1] + 1, team, 1);
+    // Ordering the midfield
+    insertion_sort(formation[2] + formation[1] + 1, team, formation[1] + 1);
+    // Ordering the forwards
+    insertion_sort(formation[3] + formation[2] + formation[1] + 1, team, formation[2] + formation[1] + 1);
+}
+
 
 // Given the document in which the output will be written and a
 // team, writes the team in the document with the required format.
@@ -125,6 +127,10 @@ bool comp(const vi& team1, const vi& team2){
     return team_points(team1) > team_points(team2);
 }
 
+bool less_price(const player& p1, const player& p2){
+    return p1.price < p2.price;
+}
+
 // Function that separates the players by the position they play in.
 // We only take those players whose price is not above Max_Price.
 void player_position_separator (const vector <player>& players, const int Max_Price) {
@@ -135,6 +141,10 @@ void player_position_separator (const vector <player>& players, const int Max_Pr
 
         int pos = classifier[p.position];
         classified_players[pos].push_back(p);
+    }
+
+    for (int i = 0; i < 4; ++i){
+        sort(classified_players[i].begin(), classified_players[i].end(), less_price);
     }
 }
 
@@ -157,9 +167,20 @@ bool valid_permutation(vi& team){
 //Adds a random valid permutation
 vi add_random(){
     vi newteam;
+    int total_cost = 0; 
+
+    player null = {"", "", "", 0, 0};
+    int startint = rng() % 11;
 
     for (int i = 0; i < 11; ++i){
-        newteam.push_back(rng() % classified_players[position(i)].size()); 
+        int pos = position((i + startint) % 11);
+
+        null.price = max_price_team - total_cost;
+        int range = lower_bound(classified_players[pos].begin(), classified_players[pos].end(), null, less_price) - classified_players[pos].begin(); 
+        //cout <<  "the range is " << range << " !! vs " << classified_players[pos].size() << endl;
+
+        newteam.push_back(rng() % range); 
+        total_cost += classified_players[pos][newteam.back()].price;
     }
 
     if (not valid_permutation(newteam)) return add_random();
@@ -190,7 +211,7 @@ vi crossover(vi& T1, vi& T2){
 
 //returns a mutation (or not) of a team.
 vi mutation(vi& team){
-    double p = 0.15;
+    double p = 0.1;
 
     vi mutate = team;
 
@@ -208,9 +229,12 @@ void solve(){
     int max_points = 0;
     int population_size = 5e3;
 
-    //while (true){ // or in general time < 1 minute or while there has been no improvement in Y iterations
+    for (int w = 0; w < 100; ++w){ // or in general time < 1 minute or while there has been no improvement in Y iterations
+        
         while (population.size() < population_size) population.push_back(add_random());
         sort(population.begin(), population.end(), comp);
+        
+        for (int i = 0; i < population_size; ++i) reorder(population[i]);
         
         if (team_points(population.front()) > max_points) {
             max_points = team_points(population.front());
@@ -219,7 +243,7 @@ void solve(){
 
         vvi new_population;
 
-        for (int i = 0; i < 500; ++i) {
+        for (int i = 0; i < population.size() and new_population.size() < 500; ++i) {
             if (i == 0 or new_population.back() != population[i]){
                 new_population.push_back(population[i]);
             }
@@ -230,8 +254,8 @@ void solve(){
             if (valid_permutation(mutate)) new_population.push_back(mutate);
         }
         
-        for (int i = 0; i < 100; ++i){
-            for (int j = 0; j < 100; ++j){
+        for (int i = 0; i < 50; ++i){
+            for (int j = 0; j < 50; ++j){
                 if (i == j) continue;
 
                 vi child = crossover(population[i], population[j]);
@@ -240,7 +264,7 @@ void solve(){
         }
 
         population = new_population;
-    //}
+    }
 }
 
 // Given the file with the data of the football players, the function returns
