@@ -71,6 +71,14 @@ void print_solution(vector <int>& team){
     document.close();
 }
 
+// Function which given an index, returns the index of the player's position:
+// 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
+int position(int i) {
+    if (i == 0) return 0;
+    if (i < N1 + 1) return 1;
+    if (i < N1 + N2 + 1) return 2;
+    return 3;
+}
 
 // Function used to sort players with descending order with respect to the
 // points and ascending with respect to the price and name (in this order). 
@@ -112,10 +120,25 @@ vi add_random(){
     return newteam;
 }
 
-//is the crossing between 2 teams
-vi crosover(vi& t1, vi& t2){
+// Auxiliary function to the crossover function, which takes in two players and randomly outputs
+// one of the two players to choose said player in the recombination. The probability of choosing 
+// each player is a function of their points and prices.
+int coin_flip(const player& p1, const player& p2) {
+    double p = p1.points/p1.price;
+    double T = p + p2.points/p2.price;
+    if (p/T > /* Sample from U(0, 1) */) return p1
+    return p2;
+}
 
-
+// Function to execute the crossing between 2 teams, returning an offspring team.
+vi crossover(vi& T1, vi& T2){
+    vi new_team(11);
+    for (int i = 0; i < 11; ++i) {
+        // We find the players associated with each index in order to compare them.
+        player p1 = classified_players[position(i1)][T1[i]], p2 = classified_players[position(i2)][T2[i]];
+        new_team[i] = coin_flip(p1, p2);
+    }
+    return new_team;
 }
 
 //returns a mutation (possibly more than one) of a team.
