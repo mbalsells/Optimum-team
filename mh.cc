@@ -36,6 +36,31 @@ int max_price_team; //our budget
 
 vvi population; //the current population (each vector represents the positions of the players).
 
+// Helper for the sort, whose arguments are an index, a vector and the lowest index to be ordered.
+void insert(int i, vi& team, int k) {
+    while (team[i] < team[i-1] and i > k) {
+        swap(team[i], team[i-1]);
+        --i;
+    }
+}
+
+// Function to sort relatively small vectors, where insertion sort is more efficient.
+void insertion_sort(int j, vi& team, int k) {
+    for (int i = k; i < j; ++i) {
+        insert(i, team, k);
+    }
+}
+
+// Function to reorder the players in a team in lexicographical order within the same position.
+void reorder(vi& team) {
+    // Ordering the defense
+    insertion_sort(formation[1] + 1, team, 1);
+    // Ordering the midfield
+    insertion_sort(formation[2] + formation[1] + 1, team, formation[1] + 2);
+    // Ordering the forwards
+    insertion_sort(formation[3] + formation[2] + formation[1] + 1, team, formation[2] + formation[1] + 2);
+}
+
 // Function which given an index, returns the index of the player's position:
 // 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
 int position(int i) {
