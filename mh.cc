@@ -7,6 +7,7 @@
 #include <time.h>
 #include <chrono>
 #include <random>
+#include <set>
 
 using namespace std;
 typedef vector <int> vi; 
@@ -21,7 +22,7 @@ struct player {
 
 string output_file; //Name of the output file
 clock_t initial_time; //Time when the program started
-
+mt19937 rng; //Random generator 
 
 vector <vector <player> > classified_players(4);
 // Classified_players[position] has all the players that have that position,
@@ -35,10 +36,36 @@ int max_price_team; //our budget
 
 vvi population; //the current population (each vector represents the positions of the players).
 
+// Function which given an index, returns the index of the player's position:
+// 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
+int position(int i) {
+    if (i == 0) return 0;
+    if (i < formation[1] + 1) return 1;
+    if (i < formation[1] + formation[2] + 1) return 2;
+    return 3;
+}
+
+int team_points(const vi& team){
+    int ans = 0;
+
+    for (int i = 0; i < 11; ++i){
+        ans += classified_players[position(i)][team[i]].points;  
+    }
+    return ans;
+}
+
+int team_price(const vi& team){
+    int ans = 0;
+
+    for (int i = 0; i < 11; ++i){
+        ans += classified_players[position(i)][team[i]].price;  
+    }
+    return ans;
+}
 
 // Given the document in which the output will be written and a
 // team, writes the team in the document with the required format.
-void print_solution(vector <int>& team){
+void print_solution(vi& team){
     vector <string> encode = {"POR", "DEF", "MIG", "DAV"};
     int points = 0, price = 0; //Total points and price of the team.
 
@@ -58,34 +85,19 @@ void print_solution(vector <int>& team){
 
             //Current player.
             player member = classified_players[pos][team[index++]];
-            points += member.points;
-            price += member.price;
-
             document << member.name;
         }
         document << endl;
     }
 
-    document << "Punts: " << points << endl;
-    document << "Preu: " << price << endl;
+    document << "Punts: " << team_points(team) << endl;
+    document << "Preu: " << team_price(team) << endl;
     document.close();
 }
 
-// Function which given an index, returns the index of the player's position:
-// 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
-int position(int i) {
-    if (i == 0) return 0;
-    if (i < formation[1] + 1) return 1;
-    if (i < formation[1] + formation[2] + 1) return 2;
-    return 3;
-}
-
-// Function used to sort players with descending order with respect to the
-// points and ascending with respect to the price and name (in this order). 
-bool comp(const player& p1, const player& p2){
-    if (p1.points != p2.points) return p1.points > p2.points;
-    if (p1.price != p2.price) return p1.price < p2.price;
-    return p1.name < p2.name;
+// Function used to sort teams with descending order with respect to the points.
+bool comp(const vi& team1, const vi& team2){
+    return team_points(team1) > team_points(team2);
 }
 
 // Function that separates the players by the position they play in.
@@ -103,31 +115,39 @@ void player_position_separator (const vector <player>& players, const int Max_Pr
 
 //checks whether the cost of a team is below our budget.
 bool valid_permutation(vi& team){
+    if (team_price(team) > max_price_team) return false;
 
+    set <pair <int, int> > taken_players;
 
+    for (int i = 0; i < 11; ++i){
+        int pos = position(i);
+        int index = team[i];
+
+        if (taken_players.find({pos, index}) != taken_players.end()) return false;
+        taken_players.insert({pos, index});
+    }
+    return true;
 }
 
 //Adds a random valid permutation
 vi add_random(){
     vi newteam;
-    for (int i = 0; i < formation.size(); ++i){
-        for (int j = 0; j < formation[i]; ++j){
-            newteam.push_back(rng() % classifier[i].size()); 
-        }
+
+    for (int i = 0; i < 11; ++i){
+        newteam.push_back(rng() % classified_players[position(i)].size()); 
     }
 
-    if (not valid_permutation(newteam)) return add_random;
+    if (not valid_permutation(newteam)) return add_random();
     return newteam;
 }
 
 // Auxiliary function to the crossover function, which takes in two players and randomly outputs
 // one of the two players to choose said player in the recombination. The probability of choosing 
 // each player is a function of their points and prices.
-int coin_flip(const player& p1, const player& p2) {
+bool coin_flip(const player& p1, const player& p2) {
     double p = p1.points/p1.price;
     double T = p + p2.points/p2.price;
-    if (p/T > /* Sample from U(0, 1) */) return p1
-    return p2;
+    return (p/T > (double (rng() % INF)/INF)); 
 }
 
 // Function to execute the crossing between 2 teams, returning an offspring team.
@@ -135,47 +155,67 @@ vi crossover(vi& T1, vi& T2){
     vi new_team(11);
     for (int i = 0; i < 11; ++i) {
         // We find the players associated with each index in order to compare them.
-        player p1 = classified_players[position(i1)][T1[i]], p2 = classified_players[position(i2)][T2[i]];
-        new_team[i] = coin_flip(p1, p2);
+        player p1 = classified_players[position(i)][T1[i]];
+        player p2 = classified_players[position(i)][T2[i]];
+        if (coin_flip(p1, p2)) new_team[i] = T1[i];
+        else new_team[i] = T2[i];
     }
     return new_team;
 }
 
-//returns a mutation (possibly more than one) of a team.
+//returns a mutation (or not) of a team.
 vi mutation(vi& team){
     double p = 0.15;
 
     vi mutate = team;
-    int sum = 0;
-    for (int i = 0; i < formation.size(); ++i){
-        for (int j = 0; j < formation[i]; ++j){
-            //int points = classified_players[i][team[sum++]].points;
-            
-            double random = (double (rng() % INF)/INF);
-            if (random < p) mutate[sum] = rng() % classifier[i].size(); 
-            ++sum;
-        }
+
+    for (int i = 0; i < 11; ++i){
+        double random = (double (rng() % INF)/INF);
+        if (random < p) mutate[i] = rng() % classified_players[position(i)].size(); 
     }
-    
+
     return mutate;
 }
 
 
-void solve(int max_price){
-    initialize population 2000
+void solve(){
+    population.clear();
     int max_points = 0;
+    int population_size = 5e3;
 
-    while (true){ // or in general time < 1 minute or while there has been no improvement in Y iterations
-        while (population < size) add_random
+    //while (true){ // or in general time < 1 minute or while there has been no improvement in Y iterations
+        while (population.size() < population_size) population.push_back(add_random());
+        sort(population.begin(), population.end(), comp);
+        
+        if (team_points(population.front()) > max_points) {
+            max_points = team_points(population.front());
+            print_solution(population.front());
+        }
 
-        sort by points
-        if best one has more than max_points keep those points and overwrite answer
+        vvi new_population;
 
-        get best X and no repeats
-        add to new vector
-        add all mutations
-        add crosover top 100
-    }
+        for (int i = 0; i < 500; ++i) {
+            if (i == 0 or new_population.back() != population[i]){
+                new_population.push_back(population[i]);
+            }
+        }
+
+        for (int i = 0; i < 500; ++i){
+            vi mutate = mutation(population[i]);
+            if (valid_permutation(mutate)) new_population.push_back(mutate);
+        }
+        
+        for (int i = 0; i < 100; ++i){
+            for (int j = 0; j < 100; ++j){
+                if (i == j) continue;
+
+                vi child = crossover(population[i], population[j]);
+                if (valid_permutation(child)) new_population.push_back(child);
+            }
+        }
+
+        population = new_population;
+    //}
 }
 
 // Given the file with the data of the football players, the function returns
@@ -219,7 +259,7 @@ void get_solution(string input_file, const vector <player>& players){
 }
 
 int main(int argc, char** argv) {
-    mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+    rng = mt19937(chrono::steady_clock::now().time_since_epoch().count());
     initial_time = clock();
 
     if (argc != 4) {
