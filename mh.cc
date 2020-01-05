@@ -7,7 +7,6 @@
 #include <time.h>
 #include <chrono>
 #include <random>
-#include <set>
 
 using namespace std;
 typedef vector <int> vi; 
@@ -20,9 +19,9 @@ struct player {
     int price, points;          
 };
 
-string output_file; //Name of the output file
-clock_t initial_time; //Time when the program started
-mt19937 rng; //Random generator 
+string output_file; //Name of the output file.
+clock_t initial_time; //Time when the program started.
+mt19937 rng; //Random number generator.
 
 vector <vector <player> > classified_players(4);
 // Classified_players[position] has all the players that have that position,
@@ -34,10 +33,16 @@ vector <int> formation;
 
 int max_price_team; //our budget
 
-vvi population; //the current population (each vector represents the positions of the players).
+vvi population; 
+// This is the current population, each vector represents a team ("individual").
+// A team is represented as a vector of integers: the first formation[0] integers are
+// the indices of the goalkeepers have in the classified_players[0] vector. the next
+// formation[1] integers are the indices that the defenses have in the 
+// classified_players[1] vector, and so on.
 
-// Function which given an index, returns the index of the player's position:
-// 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
+
+// Function which given the index that a player has in a team, returns the index of the player's 
+// position: 0 for goalkeeper, 1 for defense, 2 for midfielder and 3 for forward.
 int position(int i) {
     if (i == 0) return 0;
     if (i < formation[1] + 1) return 1;
@@ -45,6 +50,7 @@ int position(int i) {
     return 3;
 }
 
+// Function which given a team returns the number of points of the whole team.
 int team_points(const vi& team){
     int ans = 0;
 
@@ -54,6 +60,7 @@ int team_points(const vi& team){
     return ans;
 }
 
+// Function which given a team returns the price of the whole team.
 int team_price(const vi& team){
     int ans = 0;
 
@@ -73,20 +80,20 @@ void insert(int i, vi& team, int k) {
 }
 
 // Function to sort relatively small vectors, where insertion sort is more efficient.
-void insertion_sort(int j, vi& team, int k) {
+void insertion_sort(int k, vi& team, int j) {
     for (int i = k; i < j; ++i) {
         insert(i, team, k);
     }
 }
 
-// Function to reorder the players in a team in lexicographical order within the same position.
+// Function to reorder the players in a team in numerical order within the same position.
 void reorder(vi& team) {
     // Ordering the defense
-    insertion_sort(formation[1] + 1, team, 1);
+    insertion_sort(1, team, formation[1] + 1);
     // Ordering the midfield
-    insertion_sort(formation[2] + formation[1] + 1, team, formation[1] + 1);
+    insertion_sort(formation[1] + 1, team, formation[2] + formation[1] + 1);
     // Ordering the forwards
-    insertion_sort(formation[3] + formation[2] + formation[1] + 1, team, formation[2] + formation[1] + 1);
+    insertion_sort(formation[2] + formation[1] + 1, team, formation[3] + formation[2] + formation[1] + 1);
 }
 
 
@@ -127,12 +134,14 @@ bool comp(const vi& team1, const vi& team2){
     return team_points(team1) > team_points(team2);
 }
 
+// Function used to compare players with respect to their price.
 bool less_price(const player& p1, const player& p2){
     return p1.price < p2.price;
 }
 
 // Function that separates the players by the position they play in.
 // We only take those players whose price is not above Max_Price.
+// It also sorts the players of each position increasingly by price.
 void player_position_separator (const vector <player>& players, const int Max_Price) {
     map <string, int> classifier = {{"por", 0}, {"def", 1}, {"mig", 2}, {"dav", 3}};
 
@@ -148,51 +157,62 @@ void player_position_separator (const vector <player>& players, const int Max_Pr
     }
 }
 
-//checks whether the cost of a team is below our budget.
+// Checks whether a team is valid, i.e. that its cost is below our budget and 
+// that it doesn't have repeated players. The other conditions are always satisfied.
 bool valid_permutation(vi& team){
     if (team_price(team) > max_price_team) return false;
+    reorder(team);
 
-    set <pair <int, int> > taken_players;
-
-    for (int i = 0; i < 11; ++i){
-        int pos = position(i);
-        int index = team[i];
-
-        if (taken_players.find({pos, index}) != taken_players.end()) return false;
-        taken_players.insert({pos, index});
+    int sum = 0;
+    for (int i = 0; i < 4; ++i){
+        for (int j = 0; j < formation[i]; ++j){
+            if (j > 0 and team[sum] == team[sum-1]) return false; //repeated player
+            ++sum; 
+        }
     }
+    
     return true;
 }
 
-//Adds a random valid permutation
-vi add_random(){
-    vi newteam;
-    int total_cost = 0; 
-
+// Given a position (0 for goalkeeper, 1 for defense, and so on) and the current cost of
+// a team, returns the greatest index of the player of such position that, when taken,
+// the new cost of the team won't exceed the budget.  
+int range(int pos, int current_cost){
     player null = {"", "", "", 0, 0};
-    int startint = rng() % 11;
+    null.price = max_price_team - current_cost;
+    auto it = lower_bound(classified_players[pos].begin(), classified_players[pos].end(), null, less_price);
+    return it - classified_players[pos].begin(); 
+}
 
-    for (int i = 0; i < 11; ++i){
-        int pos = position((i + startint) % 11);
+// This function returns a random valid team.
+vi add_random(){
+    vi new_team(11, 0);
+    int start = rng() % 11;
+    // We start choosing the players from a random index of the new_team vector so
+    // that we are as likely to start choosing goalkeepers than any other position.
 
-        null.price = max_price_team - total_cost;
-        int range = lower_bound(classified_players[pos].begin(), classified_players[pos].end(), null, less_price) - classified_players[pos].begin(); 
-        //cout <<  "the range is " << range << " !! vs " << classified_players[pos].size() << endl;
+    while (not valid_permutation(new_team)){
+        int total_cost = 0; //cost of the team.
 
-        newteam.push_back(rng() % range); 
-        total_cost += classified_players[pos][newteam.back()].price;
+        for (int i = 0; i < 11; ++i){
+            int j = (i + start) % 11;
+            int pos = position(j);
+
+            //choose random player who won't exceed budget.
+            new_team[j] = rng() % range(pos, total_cost);
+            total_cost += classified_players[pos][new_team[j]].price;
+        }
     }
 
-    if (not valid_permutation(newteam)) return add_random();
-    return newteam;
+    return new_team;
 }
 
 // Auxiliary function to the crossover function, which takes in two players and randomly outputs
 // one of the two players to choose said player in the recombination. The probability of choosing 
 // each player is a function of their points and prices.
 bool coin_flip(const player& p1, const player& p2) {
-    double p = p1.points/(1 + p1.price);
-    double T = p + p2.points/(1 + p2.price);
+    double p = p1.points/(1.0 + p1.price);
+    double T = p + p2.points*(1.0 + p1.price);
     return (p/T > (double (rng() % INF)/INF)); 
 }
 
@@ -209,53 +229,53 @@ vi crossover(vi& T1, vi& T2){
     return new_team;
 }
 
-//returns a mutation (or not) of a team.
+// Given a team returns a mutation of that team. Changing exactly one of its players.
 vi mutation(vi& team){
-    double p = 0.1;
-
     vi mutate = team;
+    int mutated_player = rng() % 11;
+    int pos = position(mutated_player);
+    int r = range(pos, team_price(team) - classified_players[pos][mutated_player].price);
 
-    for (int i = 0; i < 11; ++i){
-        double random = (double (rng() % INF)/INF);
-        if (random < p) mutate[i] = rng() % classified_players[position(i)].size(); 
-    }
-
+    mutate[mutated_player] = rng() % r;
     return mutate;
 }
 
-
-void solve(){
+void genetic_algorithm(){
     population.clear();
-    int max_points = 0;
-    int population_size = 5e3;
+    int max_points = 0; //maximum amount of points reached so far.
+    int population_size = 1400; //size of the population
 
-    for (int w = 0; w < 100; ++w){ // or in general time < 1 minute or while there has been no improvement in Y iterations
-        
+    for (int iterations = 0; iterations < 1500; ++iterations){
+        //while there is not enough population, add random individuals (teams).
         while (population.size() < population_size) population.push_back(add_random());
+        
+        //sort the population accoding to a fitting function, in this case, number of points.
         sort(population.begin(), population.end(), comp);
         
-        for (int i = 0; i < population_size; ++i) reorder(population[i]);
-        
+        //if the best team has more points than the record so far, update and overwrite.
         if (team_points(population.front()) > max_points) {
             max_points = team_points(population.front());
             print_solution(population.front());
         }
 
-        vvi new_population;
+        vvi new_population; //this will be the next generation.
 
+        //the best 500 different individuals will pass to next generation.
         for (int i = 0; i < population.size() and new_population.size() < 500; ++i) {
             if (i == 0 or new_population.back() != population[i]){
                 new_population.push_back(population[i]);
             }
         }
 
+        //a mutation of the best 500 parents will also pass to next generation (if they are valid).
         for (int i = 0; i < 500; ++i){
             vi mutate = mutation(population[i]);
             if (valid_permutation(mutate)) new_population.push_back(mutate);
         }
         
-        for (int i = 0; i < 50; ++i){
-            for (int j = 0; j < 50; ++j){
+        //the best 20 pairwise distinct parents will recombine. Childs will pass to next generation.
+        for (int i = 0; i < 20; ++i){
+            for (int j = 0; j < 20; ++j){
                 if (i == j) continue;
 
                 vi child = crossover(population[i], population[j]);
@@ -263,7 +283,7 @@ void solve(){
             }
         }
 
-        population = new_population;
+        population = new_population; //update population.
     }
 }
 
@@ -304,7 +324,7 @@ void get_solution(string input_file, const vector <player>& players){
     player_position_separator(players, max_price_player); //Separate players by position and
                                                           //elimiante those below the threshold.
     
-    solve(); //Solve the problem.
+    genetic_algorithm(); //Solve the problem using a genetic algorithm.
 }
 
 int main(int argc, char** argv) {
