@@ -36,7 +36,7 @@ int max_price_team; //our budget
 vvi population; 
 // This is the current population, each vector represents a team ("individual").
 // A team is represented as a vector of integers: the first formation[0] integers are
-// the indices of the goalkeepers have in the classified_players[0] vector. the next
+// the indices that the goalkeepers have in the classified_players[0] vector. the next
 // formation[1] integers are the indices that the defenses have in the 
 // classified_players[1] vector, and so on.
 
@@ -101,8 +101,7 @@ void reorder(vi& team) {
 // team, writes the team in the document with the required format.
 void print_solution(vi& team){
     vector <string> encode = {"POR", "DEF", "MIG", "DAV"};
-    int points = 0, price = 0; //Total points and price of the team.
-
+    
     ofstream document;
     document.open(output_file);
     document.setf(ios::fixed); //One decimal for the execution time.
@@ -220,7 +219,7 @@ bool coin_flip(const player& p1, const player& p2) {
 vi crossover(vi& T1, vi& T2){
     vi new_team(11);
     for (int i = 0; i < 11; ++i) {
-        // We find the players associated with each index in order to compare them.
+        //We find the players associated with each index in order to compare them.
         player p1 = classified_players[position(i)][T1[i]];
         player p2 = classified_players[position(i)][T2[i]];
         if (coin_flip(p1, p2)) new_team[i] = T1[i];
@@ -242,38 +241,40 @@ vi mutation(vi& team){
 
 void genetic_algorithm(){
     population.clear();
-    int max_points = 0; //maximum amount of points reached so far.
-    int population_size = 1400; //size of the population
+    int max_points = 0; //Maximum amount of points reached so far.
+    int population_size = 1400; //Size of the population
+    int last_improvement = 0;
 
-    for (int iterations = 0; iterations < 1500; ++iterations){
-        //while there is not enough population, add random individuals (teams).
+    while (last_improvement++ < 500){ //If in 500 iterations there has been no improvement stop.
+        //While there is not enough population, add random individuals (teams).
         while (population.size() < population_size) population.push_back(add_random());
         
-        //sort the population accoding to a fitting function, in this case, number of points.
+        //Sort the population accoding to a fitting function, in this case, number of points.
         sort(population.begin(), population.end(), comp);
         
-        //if the best team has more points than the record so far, update and overwrite.
+        //If the best team has more points than the record so far, update and overwrite.
         if (team_points(population.front()) > max_points) {
+            last_improvement = 0; //reset.
             max_points = team_points(population.front());
             print_solution(population.front());
         }
 
-        vvi new_population; //this will be the next generation.
+        vvi new_population; //This will be the next generation.
 
-        //the best 500 different individuals will pass to next generation.
+        //The best 500 different individuals will pass to next generation.
         for (int i = 0; i < population.size() and new_population.size() < 500; ++i) {
             if (i == 0 or new_population.back() != population[i]){
                 new_population.push_back(population[i]);
             }
         }
 
-        //a mutation of the best 500 parents will also pass to next generation (if they are valid).
+        //A mutation of the best 500 parents will also pass to next generation (if they are valid).
         for (int i = 0; i < 500; ++i){
             vi mutate = mutation(population[i]);
             if (valid_permutation(mutate)) new_population.push_back(mutate);
         }
         
-        //the best 20 pairwise distinct parents will recombine. Childs will pass to next generation.
+        //The best 20 pairwise distinct parents will recombine. Valid childs pass to next generation.
         for (int i = 0; i < 20; ++i){
             for (int j = 0; j < 20; ++j){
                 if (i == j) continue;
@@ -283,7 +284,7 @@ void genetic_algorithm(){
             }
         }
 
-        population = new_population; //update population.
+        population = new_population; //Update population.
     }
 }
 
